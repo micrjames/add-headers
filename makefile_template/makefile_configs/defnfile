@@ -1,0 +1,10 @@
+include ./makefile_configs/outfile
+
+ifdef util_funcs
+helpers = $(util_funcs).c $(TARGET).h
+objects = $(TARGET).o $(util_funcs).o
+
+OBJ_FILES = $(objects)
+else
+OBJ_FILES = $(TARGET).o
+endif
