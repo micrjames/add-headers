@@ -7,6 +7,9 @@ version="1.0.0"
 update="0"
 project="CForge"
 
+log_file="./add_header.log"
+: > "$log_file"
+
 ###############################################################################
 # add_header <file> <description>
 #   • Creates three temps (header‑only, body‑only, merged)
@@ -55,20 +58,25 @@ add_header() {
 ###############################################################################
 # Example invocations – adjust paths as needed
 ###############################################################################
-add_header create_c_project.sh \
-           "Script to scaffold a C project structure"
 
-add_header makefile_template/Makefile \
-           "Generic build system for multi‑file C projects"
+files=(
+	"create_c_project.sh|Script to scaffold a C project structure"
+	"makefile_template/Makefile|Generic build system for multi‑file C projects"
+	"makefile_template/makefile_configs/defnfile|Compiler and linker configuration for CForge projects"
+	"makefile_template/makefile_configs/outfile|Defines the output binary name"
+	"base_ncurses.c|Optional ncurses helper module (source)"
+	"base_ncurses.h|Header for optional ncurses helper module"
+)
 
-add_header makefile_template/makefile_configs/defnfile \
-           "Compiler and linker configuration for CForge projects"
+for file in "${files[@]}"; do
+	name="${file%%|*}"
+	desc="${file#*|}"
+	#echo "$name $desc"
 
-add_header makefile_template/makefile_configs/outfile \
-           "Defines the output binary name"
+	if [[ ! -f "$name" ]]; then
+		echo "❌ File not found: $file" | tee -a "$log_file"
+		continue
+	fi
 
-add_header base_ncurses.c \
-           "Optional ncurses helper module (source)"
-
-add_header base_ncurses.h \
-           "Header for optional ncurses helper module"
+	add_header "$name" "$desc"
+done
