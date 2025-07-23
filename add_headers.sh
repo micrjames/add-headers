@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # add_headers.sh – prepend a standard header to any file you specify
-# Usage: chmod +x add_headers.sh && ./add_headers.sh
+# Usage: chmod +x add_headers.sh && ./add_headers.sh <file> "<description>"
 # ------------------------------------------------------------------
 
 version="1.0.0"
 update="0"
 project="CForge"
-
 log_file="./add_header.log"
 : > "$log_file"
 
@@ -41,42 +40,46 @@ add_header() {
     cat -- "$tmp_header" "$tmp_body" >"$tmp_merge"  # merged
 
     # --- preserve permissions, replace atomically, clean up -------------------
-	# Preserve original mode cross‑platform
-	if chmod --reference="$file" "$tmp_merge" 2>/dev/null; then
-		:                               # GNU coreutils path succeeded
-	else
-		perms=$(stat -f "%Lp" "$file")  # BSD/macOS: fetch octal permissions
-		chmod "$perms" "$tmp_merge"
-	fi
-	
-    mv -- "$tmp_merge" "$file"
+    if chmod --reference="$file" "$tmp_merge" 2>/dev/null; then
+        : # success (GNU coreutils)
+    else
+        perms=$(stat -f "%Lp" "$file")  # BSD/macOS
+        chmod "$perms" "$tmp_merge"
+    fi
+
+    #mv -- "$tmp_merge" "$file"
+	command mv -f "$tmp_merge" "$file"
     rm -f -- "$tmp_header" "$tmp_body"
 
     echo "Header added to $file"
 }
 
 ###############################################################################
-# Example invocations – adjust paths as needed
+# Allow both internal preset list and command-line override
 ###############################################################################
 
 files=(
-	"create_c_project.sh|Script to scaffold a C project structure"
-	"makefile_template/Makefile|Generic build system for multi‑file C projects"
-	"makefile_template/makefile_configs/defnfile|Compiler and linker configuration for CForge projects"
-	"makefile_template/makefile_configs/outfile|Defines the output binary name"
-	"base_ncurses.c|Optional ncurses helper module (source)"
-	"base_ncurses.h|Header for optional ncurses helper module"
+    "create_c_project.sh|Script to scaffold a C project structure"
+    "makefile_template/Makefile|Generic build system for multi‑file C projects"
+    "makefile_template/makefile_configs/defnfile|Compiler and linker configuration for CForge projects"
+    "makefile_template/makefile_configs/outfile|Defines the output binary name"
+    "base_ncurses.c|Optional ncurses helper module (source)"
+    "base_ncurses.h|Header for optional ncurses helper module"
 )
 
+# === Allow direct input ===
+if [[ -n "$1" && -n "$2" ]]; then
+    files=("$1|$2")
+fi
+
 for file in "${files[@]}"; do
-	name="${file%%|*}"
-	desc="${file#*|}"
-	#echo "$name $desc"
+    name="${file%%|*}"
+    desc="${file#*|}"
 
-	if [[ ! -f "$name" ]]; then
-		echo "❌ File not found: $file" | tee -a "$log_file"
-		continue
-	fi
+    if [[ ! -f "$name" ]]; then
+        echo "❌ File not found: $file" | tee -a "$log_file"
+        continue
+    fi
 
-	add_header "$name" "$desc"
+    add_header "$name" "$desc"
 done
