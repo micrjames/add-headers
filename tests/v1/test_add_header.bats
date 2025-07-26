@@ -173,3 +173,65 @@ EOF
 	# 5) (Optional) ensure no extra copy got created (very unlikely but explicit)
 	[ ! -f "file" ] && [ ! -f "with" ] && [ ! -f "spaces.c" ]
 }
+
+@test "Header contains Version and Update fields" {
+	echo 'int main(){return 0;}' > ver.c
+	run bash add_headers.sh ver.c "Version fields test"
+	[ "$status" -eq 0 ]
+	grep -q "# Version: 1.0.0" ver.c
+	grep -q "# Update: 0" ver.c
+}
+
+@test "Handles Unicode filename" {
+	fname="unicodé_名字.c"
+	echo 'int u(){return 0;}' > "$fname"
+	run bash add_headers.sh "$fname" "Unicode test"
+	[ "$status" -eq 0 ]
+	grep -q "# Project: CForge" "$fname"
+	grep -q "# File: $fname"    "$fname"
+	grep -q "# Description: Unicode test" "$fname"
+	grep -q "int u()" "$fname"
+}
+
+@test "Header formatting: exactly one blank line between header and body" {
+	echo 'int f(){return 1;}' > fmt.c
+	run bash add_headers.sh fmt.c "Fmt test"
+	[ "$status" -eq 0 ]
+
+	# Find line numbers of the two delimiter rows (===)
+	mapfile -t dl < <(grep -n '^# =\{3,\}$' fmt.c | cut -d: -f1)
+	[ "${#dl[@]}" -ge 2 ]  # at least two delimiters
+
+	second_delim="${dl[1]}"
+
+	# The very next non-comment line after second delimiter should be the code, no extra blank gap
+	next_line=$(( second_delim + 1 ))
+	# Skip any empty lines to ensure there's exactly one gap -> allow 0 or 1? You said "exactly one newline"
+	# So require that line (second_delim+1) is NOT empty and NOT starting with '#'
+	line_content="$(sed -n "${next_line}p" fmt.c)"
+	[ -n "$line_content" ]
+	[[ ! "$line_content" =~ ^# ]]
+
+	# And confirm original code is right there
+	grep -q 'int f()' fmt.c
+}
+
+@test "Script behaves the same from different working dirs" {
+	echo 'int g(){return 3;}' > outer.c
+
+	# Create a unique subdir inside TMPDIR
+	subdir="$(mktemp -d subdir.XXXXXX)"
+
+	# Copy the script into that subdir
+	cp add_headers.sh "$subdir/"
+
+	(
+	cd "$subdir" || exit 1
+	run bash ./add_headers.sh ../outer.c "CWD test"
+	[ "$status" -eq 0 ]
+	)
+
+	# Verify header landed in the original file
+	grep -q "# Description: CWD test" outer.c
+	grep -q "int g()" outer.c
+}
